@@ -15,7 +15,7 @@
 
     using Microsoft.IdentityModel.Tokens;
 
-    public static class ServerProgram
+    public static partial class ServerProgram
     {
 
         /// <summary>
@@ -42,33 +42,6 @@
         /// A hash list that contains a list of valid tokens
         /// </summary>
         private static HashSet<string> _validTokens = new HashSet<string>();
-
-
-        /// <summary>
-        /// A Token data structure that contains "formatted" information about a received/sent token
-        /// </summary>
-        private class Token
-        {
-            /// <summary>
-            /// The token as is, a raw unecrypted string
-            /// </summary>
-            public string RawToken { get; set; }
-
-            /// <summary>
-            /// Header information that is associated with the token
-            /// </summary>
-            public Dictionary<string, string> Header { get; set; }
-
-            /// <summary>
-            /// The payload/data that came with this token
-            /// </summary>
-            public Dictionary<string, string> Claims { get; set; }
-
-            /// <summary>
-            /// The encrypted key
-            /// </summary>
-            public string Key { get; set; }
-        }
 
 
         private async static Task Main(string[] args)
