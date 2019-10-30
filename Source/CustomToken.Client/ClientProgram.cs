@@ -15,7 +15,7 @@
         /// The client's connection to the server
         /// </summary>
         private static HttpClient _client;
-        
+
         /// <summary>
         /// A connection specifier
         /// </summary>
@@ -29,7 +29,6 @@
 
         private async static Task Main(string[] args)
         {
-
             Console.Title = "Client";
 
             // Initalize client
@@ -62,9 +61,7 @@
                 _token = loginResponse.Token;
 
                 // Log
-                Console.WriteLine($"Succesfully logged in as {username}. \nReceived token: {_token}");
-                Console.WriteLine($"Press enter to continue");
-                Console.ReadLine();
+                Log($"Succesfully logged in as {username}. \nReceived token: {_token}\nPress enter to continue", stopUntilEnterIsHit: true);
 
                 // Create "authorized" request
                 var authorizedRequest = await _client.PostAsync($"{_connection.HttpUrl}/Account/Authorized",
@@ -77,9 +74,7 @@
                 if (authorizedRequest.IsSuccessStatusCode == true)
                 {
                     // log
-                    Console.WriteLine($"Completed authorized request");
-                    Console.WriteLine($"Press enter to continue");
-                    Console.ReadLine();
+                    Log($"Completed authorized request\nPress enter to continue", stopUntilEnterIsHit: true);
 
                     // Create sign out request
                     var signOutRequest = await _client.PostAsync($"{_connection.HttpUrl}/Account/SignOut",
@@ -92,9 +87,8 @@
                     if (signOutRequest.IsSuccessStatusCode == true)
                     {
                         // Log
-                        Console.WriteLine($"Signed out succesfully");
-                        Console.WriteLine($"Press enter to continue");
-                        Console.ReadLine();
+                        Log($"Signed out succesfully\nPress enter to continue", stopUntilEnterIsHit: true);
+
 
                         // Attemp to create a new authorized request
                         var authorizedRequest2 = await _client.PostAsync($"{_connection.HttpUrl}/Account/Authorized",
@@ -103,49 +97,56 @@
                                 Token = _token,
                             }), Encoding.UTF8, "application/json"));
 
+
                         // If authorized request failed as expected
                         if (authorizedRequest2.IsSuccessStatusCode == false)
                         {
                             // Log that every thing we ok and exit
-                            Console.WriteLine($"Authorized request failed succesfully");
-                            Console.WriteLine($"Press enter to exit");
-                            Console.ReadLine();
+                            Log($"Authorized request failed succesfully\nPress enter to exit", stopUntilEnterIsHit: true);
                         }
                         else
                         {
-                            // log errorS
-                            Console.ForegroundColor = ConsoleColor.Red;
-                            Console.WriteLine("Authorization request was a success when it should have failed");
-                            Console.ResetColor();
-                            Console.ReadLine();
+                            // log errors
+                            Log("Authorization request was a success when it should have failed", logColour: ConsoleColor.Red, stopUntilEnterIsHit: true);
                         };
                     }
                     else
                     {
-                        Console.ForegroundColor = ConsoleColor.Red;
-                        Console.WriteLine("Sign out request failed");
-                        Console.ResetColor();
-                        Console.ReadLine();
+                        Log("Sign out request failed", logColour: ConsoleColor.Red, stopUntilEnterIsHit: true);
                     };
                 }
                 // If not
                 else
                 {
-                    // log
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Authorization request failed");
-                    Console.ResetColor();
-                    Console.ReadLine();
+                    Log("Authorization failed", logColour: ConsoleColor.Red, stopUntilEnterIsHit: true);
                 };
             }
             else
             {
                 // Display error
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine("Login failed");
-                Console.ResetColor();
-                Console.ReadLine();
+                Log("Login failed", logColour: ConsoleColor.Red, stopUntilEnterIsHit: true);
             };
+        }
+
+        /// <summary>
+        /// Logs an error
+        /// </summary>
+        /// <param name="error"> The error to display </param>
+        /// <param name="stopUntilEnterIsHit"> stop execution until enter is hit default is false </param>
+        private static void Log(string error, ConsoleColor logColour = ConsoleColor.Gray, bool stopUntilEnterIsHit = false)
+        {
+            // Set foreground to red to indicate that something went wrong
+            Console.ForegroundColor = logColour;
+
+            // display error
+            Console.WriteLine(error);
+
+            // Reset forground color
+            Console.ResetColor();
+
+            // If needed will stop execution until enter is hit
+            if (stopUntilEnterIsHit == true)
+                Console.ReadLine();
         }
 
     };
