@@ -68,7 +68,6 @@
             /// The encrypted key
             /// </summary>
             public string Key { get; set; }
-
         }
 
 
@@ -115,140 +114,129 @@
                 // Get the users data stream
                 var networkStream = connectedClient.GetStream();
 
-                while (true)
+
+                // "wait" until the request has new data
+                while (networkStream.DataAvailable == false)
+                    await Task.Delay(1);
+
+                // If the recevied data contains atleast more than 3 characters (GET)
+                if (connectedClient.Available > 3)
                 {
+                    // Allocate the necessary data 
+                    byte[] bytes = new byte[connectedClient.Available];
 
-                    // "wait" until the request has new data
-                    while (networkStream.DataAvailable == false)
-                        await Task.Delay(1);
+                    // Read the data into the byte array
+                    networkStream.Read(bytes, 0, bytes.Length);
 
-                    // If the recevied data contains atleast more than 3 characters (GET)
-                    if (connectedClient.Available > 3)
+                    // Get the data as a raw string
+                    string rawData = Encoding.UTF8.GetString(bytes);
+
+                    string[] splitData = rawData.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+
+                    // Get the requested url
+                    var requestedUrl = rawData.Split(" ")[1].Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+                    // A string that holds the response that will be sent to the user
+                    string responseString = "";
+
+                    // Check if the request if a POST request
+                    if (Regex.IsMatch(rawData, "^POST", RegexOptions.IgnoreCase))
                     {
-                        // Allocate the necessary data 
-                        byte[] bytes = new byte[connectedClient.Available];
-
-                        // Read the data into the byte array
-                        networkStream.Read(bytes, 0, bytes.Length);
-
-                        // Get the data as a raw string
-                        string rawData = Encoding.UTF8.GetString(bytes);
-
-                        string[] splitData = rawData.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
-
-                        // Get the requested url
-                        var requestedUrl = rawData.Split(" ")[1].Split('/', StringSplitOptions.RemoveEmptyEntries);
-
-                        // A string that holds the response that will be sent to the user
-                        string responseString = "";
-
-                        // Check if the request if a POST request
-                        if (Regex.IsMatch(rawData, "^POST", RegexOptions.IgnoreCase))
+                        // If the requested url begins with Account "controller"
+                        if (requestedUrl[0] == "Account")
                         {
-                            // If the requested url begins with Account "controller"
-                            if (requestedUrl[0] == "Account")
+                            // Match the other part of the url
+
+                            // If it's a login request
+                            if (requestedUrl[1] == "Login")
                             {
-                                // Match the other part of the url
+                                // Get login details
+                                var loginDetails = JsonSerializer.Deserialize<LoginRequest>(rawData.Split("\r\n\r\n")[1]);
 
-                                // If it's a login request
-                                if (requestedUrl[1] == "Login")
-                                {
-                                    // Get login details
-                                    var loginDetails = JsonSerializer.Deserialize<LoginRequest>(rawData.Split("\r\n\r\n")[1]);
-
-                                    // Build a token
-                                    var token = BuildToken(new Dictionary<string, string>()
+                                // Build a token
+                                var token = BuildToken(new Dictionary<string, string>()
                                     {
                                         { "Username", loginDetails.Username },
                                         { "Roles", "Users" },
                                     }, JWT_TOKEN_KEY);
 
-                                    // Add the token to the token list
-                                    _validTokens.Add(token);
+                                // Add the token to the token list
+                                _validTokens.Add(token);
 
-                                    // Create header response
-                                    responseString = CreateResponseHeader(new string[]
-                                    {
+                                // Create header response
+                                responseString = CreateResponseHeader(new string[]
+                                {
                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
                                     "Content-Type: application/json",
-                                    },
-                                    // Add login response with the new token
-                                    JsonSerializer.Serialize(
-                                     new LoginResponse()
-                                     {
-                                         Token = token,
-                                     }));
-                                }
-                                // If an authorized request was requested
-                                else if (requestedUrl[1] == "Authorized")
+                                },
+                                // Add login response with the new token
+                                JsonSerializer.Serialize(
+                                 new LoginResponse()
+                                 {
+                                     Token = token,
+                                 }));
+                            }
+                            // If an authorized request was requested
+                            else if (requestedUrl[1] == "Authorized")
+                            {
+                                // deserialize the request model
+                                var authorizedRequest = JsonSerializer.Deserialize<AuthorizedRequest>(rawData.Split("\r\n\r\n")[1]);
+
+                                // Validate authorization
+
+                                // If token is valid
+                                if (_validTokens.Contains(authorizedRequest.Token) == true)
                                 {
-                                    // deserialize the request model
-                                    var authorizedRequest = JsonSerializer.Deserialize<AuthorizedRequest>(rawData.Split("\r\n\r\n")[1]);
+                                    // Decode the token
+                                    Token token = DecodeToken(authorizedRequest.Token);
 
-                                    // Validate authorization
+                                    // Check if user is in the correct role
+                                    var isInUserRole = token.Claims["Roles"]
+                                    .Contains("Users");
 
-                                    // If token is valid
-                                    if (_validTokens.Contains(authorizedRequest.Token) == true)
+                                    // if user is authorized
+                                    if (isInUserRole)
                                     {
-                                        // Decode the token
-                                        Token token = DecodeToken(authorizedRequest.Token);
-
-                                        // Check if user is in the correct role
-                                        var isInUserRole = token.Claims["Roles"]
-                                        .Contains("Users");
-
-                                        // if user is authorized
-                                        if (isInUserRole)
+                                        // Return an OK response header
+                                        responseString = CreateResponseHeader(new string[]
                                         {
-                                            // Return an OK response header
-                                            responseString = CreateResponseHeader(new string[]
-                                            {
                                                                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
-                                            });
-                                        };
-                                    }
-                                    else
-                                    {
-                                        responseString = CreateResponseHeader(new string[]
-                                        {
-                                            $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
-                                            "Content-Type: Text/Plain",
-                                        }, "Token is invalid");
-                                    };
-                                }
-                                // If sign out was requested
-                                else if (requestedUrl[1] == "SignOut")
-                                {
-                                    // Deserialize the request
-                                    var signOutDetails = JsonSerializer.Deserialize<SignOutRequest>(rawData.Split("\r\n\r\n")[1]);
-
-                                    // If token was found, remove from list
-                                    if (_validTokens.Remove(signOutDetails.Token) == true)
-                                    {
-                                        // Return a sign-out success response
-                                        responseString = CreateResponseHeader(new string[]
-                                        {
-                                            $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
                                         });
-                                    }
-                                    // If token wasn't found
-                                    else
-                                    {
-                                        // Return response
-                                        responseString = CreateResponseHeader(new string[]
-                                        {
-                                            $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
-                                            "Content-Type: Text/Plain",
-                                        }, "Token is invalid");
                                     };
                                 }
-                                // If url is mismatched return 404
                                 else
                                 {
                                     responseString = CreateResponseHeader(new string[]
                                     {
-                                    $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}",
+                                            $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
+                                            "Content-Type: Text/Plain",
+                                    }, "Token is invalid");
+                                };
+                            }
+                            // If sign out was requested
+                            else if (requestedUrl[1] == "SignOut")
+                            {
+                                // Deserialize the request
+                                var signOutDetails = JsonSerializer.Deserialize<SignOutRequest>(rawData.Split("\r\n\r\n")[1]);
+
+                                // If token was found, remove from list
+                                if (_validTokens.Remove(signOutDetails.Token) == true)
+                                {
+                                    // Return a sign-out success response
+                                    responseString = CreateResponseHeader(new string[]
+                                    {
+                                            $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
                                     });
+                                }
+                                // If token wasn't found
+                                else
+                                {
+                                    // Return response
+                                    responseString = CreateResponseHeader(new string[]
+                                    {
+                                            $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
+                                            "Content-Type: Text/Plain",
+                                    }, "Token is invalid");
                                 };
                             }
                             // If url is mismatched return 404
@@ -259,18 +247,24 @@
                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}",
                                 });
                             };
-
-
-                            byte[] responseBytes = Encoding.UTF8.GetBytes(responseString);
-
-                            networkStream.Write(new ReadOnlySpan<byte>(responseBytes));
+                        }
+                        // If url is mismatched return 404
+                        else
+                        {
+                            responseString = CreateResponseHeader(new string[]
+                            {
+                                    $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}",
+                            });
                         };
 
-                        // Close connection
-                        connectedClient.Close();
 
-                        break;
+                        byte[] responseBytes = Encoding.UTF8.GetBytes(responseString);
+
+                        networkStream.Write(new ReadOnlySpan<byte>(responseBytes));
                     };
+
+                    // Close connection
+                    connectedClient.Close();
                 };
             };
         }
