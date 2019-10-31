@@ -2,6 +2,7 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
     using System.Linq;
     using System.Net;
     using System.Net.Sockets;
@@ -48,6 +49,9 @@
         /// </summary>
         private static TokenHandler _tokenHandler = new TokenHandler();
 
+        private static Stopwatch _watcher = new Stopwatch();
+
+
         private async static Task Main(string[] args)
         {
             Console.Title = "Server";
@@ -84,12 +88,16 @@
             // Loop until user calls to exit
             while (true)
             {
-
-
                 // Wait until a connetion is recived
                 var connectedClient = await _server.AcceptTcpClientAsync();
 
-                Console.WriteLine($"Client {connectedClient.Client.RemoteEndPoint} connected");
+                // Holds the connected user's IP address
+                var connectionIP = connectedClient.Client.RemoteEndPoint;
+
+                // Start counting the request elapsed time
+                _watcher.Restart();
+
+                Console.WriteLine($"Client {connectionIP } connected");
 
                 // Get the users data stream
                 var networkStream = connectedClient.GetStream();
@@ -266,6 +274,15 @@
 
                     // Close connection
                     connectedClient.Close();
+
+
+                    // Stop coutning the request time 
+                    _watcher.Stop();
+
+                    // get elapsed time
+                    long elapsedMs = _watcher.ElapsedMilliseconds;
+
+                    Console.WriteLine($"Finished {connectionIP} request after {TimeSpan.FromMilliseconds(elapsedMs)}");
                 };
             };
         }
