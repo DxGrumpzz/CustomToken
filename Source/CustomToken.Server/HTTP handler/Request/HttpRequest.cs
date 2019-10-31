@@ -1,6 +1,7 @@
 ﻿namespace CustomToken.Server
 {
     using System.IO;
+    using System.Text;
     using System.Text.Json;
     using System.Threading.Tasks;
 
@@ -18,40 +19,40 @@
         /// <summary>
         /// The HTTP request segmented and split
         /// </summary>
-        public string[] RawDataSplit { get; set;}
+        public string[] RawDataSplit { get; set; }
 
 
         /// <summary>
         /// The HTTP method GET, POST, PUT, UPDATE, and so on
         /// </summary>
-        public string Method { get;set; }
+        public string Method { get; set; }
 
 
         /// <summary>
         /// The requested url 
         /// </summary>
-        public string RequestedUrl { get; set;}
+        public string RequestedUrl { get; set; }
 
         /// <summary>
         /// The Requested url split after every segment
         /// </summary>
-        public string[] RequestedUrlSplit { get; set;}
+        public string[] RequestedUrlSplit { get; set; }
 
 
         /// <summary>
         /// How much data the HTTP content contains
         /// </summary>
-        public int ContentLength { get; set;}
+        public int ContentLength { get; set; }
 
         /// <summary>
         /// The type of content
         /// </summary>
-        public string ContentType { get; set;}
+        public string ContentType { get; set; }
 
         /// <summary>
         /// The content held as a raw string
         /// </summary>
-        public string RawContent { get; set;}
+        public string RawContent { get; set; }
 
 
 
@@ -74,31 +75,13 @@
         /// <returns></returns>
         public async Task<T> ReadContentAsJsonAsync<T>()
         {
-            // Because deserializing asynchronously requires a stream
-            // We need a Memory stream to hold the json string as memory bytes
-
-            // Create a memory stream 
-            using (MemoryStream stream = new MemoryStream())
+            // Create a memory stream and convert the RawContent to a UTF8 encoded bytes
+            using (MemoryStream stream = new MemoryStream(Encoding.UTF8.GetBytes(RawContent)))
             {
-                // Create a StreamWriter which will write to the memory stream
-                using (StreamWriter streamWriter = new StreamWriter(stream))
-                {
-                    // Write the data on the stream
-                    await streamWriter.WriteAsync(RawContent);
-
-                    // Flush the written buffer into the stream
-                    await streamWriter.FlushAsync();
-
-                    // Set the Memory stream "cursor" position to the beggining of the data
-                    stream.Position = 0;
-
-                    // Deserialize to type T
-                    T result = await JsonSerializer.DeserializeAsync<T>(stream);
-
-                    return result;
-                };
+                // Deserialize to type T
+                T result = await JsonSerializer.DeserializeAsync<T>(stream);
+                return result;
             };
         }
-
-    };
+    }
 };
