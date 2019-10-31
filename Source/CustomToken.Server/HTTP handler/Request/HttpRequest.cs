@@ -31,6 +31,7 @@
         public string Method { get; }
 
         public string RequestedUrl { get; }
+        public string[] RequestedUrlSplit { get; }
 
 
         public int ContentLength { get; }
@@ -51,6 +52,7 @@
 
             Method = RawDataSplit.First().Split(" ")[0];
             RequestedUrl = RawDataSplit.First().Split(" ")[1];
+            RequestedUrlSplit = RequestedUrl.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
             if (contentLength != null)
             {
