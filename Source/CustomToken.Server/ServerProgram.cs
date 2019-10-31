@@ -3,7 +3,6 @@
     using System;
     using System.Collections.Generic;
     using System.Diagnostics;
-    using System.Linq;
     using System.Net;
     using System.Net.Http;
     using System.Net.Sockets;
@@ -22,15 +21,13 @@
         /// </summary>
         private static TcpListener _server;
 
+        private static Stopwatch _watcher = new Stopwatch();
+
+
         /// <summary>
         /// A connection information specifier
         /// </summary>
         private static ConnectionModel _connectionModel = new ConnectionModel();
-
-        /// <summary>
-        /// An HTTP standard header end of line break
-        /// </summary>
-        private const string END_OF_LINE = "\r\n";
 
         /// <summary>
         /// Random secret key
@@ -47,9 +44,9 @@
         /// </summary>
         private static TokenHandler _tokenHandler = new TokenHandler();
 
-        private static Stopwatch _watcher = new Stopwatch();
 
         private static HttpReqeustHandler _httpReqeustHandler = new HttpReqeustHandler();
+        private static HttpResponseHandler  _httpResponseHandler = new HttpResponseHandler();
 
         private async static Task Main(string[] args)
         {
@@ -155,7 +152,7 @@
                                     _validTokens.Add(token);
 
                                     // Create header response
-                                    responseString = CreateResponseHeader(new string[]
+                                    responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                     {
                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
                                     "Content-Type: application/json",
@@ -170,7 +167,7 @@
                                 }
                                 else
                                 {
-                                    responseString = CreateResponseHeader(new string[]
+                                    responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                     {
                                         $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
                                         "Content-Type: Text/Plain",
@@ -199,7 +196,7 @@
                                     if (isInUserRole)
                                     {
                                         // Return an OK response header
-                                        responseString = CreateResponseHeader(new string[]
+                                        responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                         {
                                                                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
                                         });
@@ -207,7 +204,7 @@
                                 }
                                 else
                                 {
-                                    responseString = CreateResponseHeader(new string[]
+                                    responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                     {
                                             $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
                                             "Content-Type: Text/Plain",
@@ -224,7 +221,7 @@
                                 if (_validTokens.Remove(signOutDetails.Token) == true)
                                 {
                                     // Return a sign-out success response
-                                    responseString = CreateResponseHeader(new string[]
+                                    responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                     {
                                             $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.OK} {HttpStatusCode.OK}",
                                     });
@@ -233,7 +230,7 @@
                                 else
                                 {
                                     // Return response
-                                    responseString = CreateResponseHeader(new string[]
+                                    responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                     {
                                             $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.Unauthorized} {HttpStatusCode.Unauthorized}",
                                             "Content-Type: Text/Plain",
@@ -243,7 +240,7 @@
                             // If url is mismatched return 404
                             else
                             {
-                                responseString = CreateResponseHeader(new string[]
+                                responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                                 {
                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}",
                                 });
@@ -252,7 +249,7 @@
                         // If url is mismatched return 404
                         else
                         {
-                            responseString = CreateResponseHeader(new string[]
+                            responseString = _httpResponseHandler.CreateResponseHeader(new string[]
                             {
                                     $"HTTP/{HttpVersion.Version11} {(int)HttpStatusCode.NotFound} {HttpStatusCode.NotFound}",
                             });
@@ -279,38 +276,5 @@
                 };
             };
         }
-
-
-        /// <summary>
-        /// A function that takes a list of strings that formats them to a valid HTTP response header
-        /// </summary>
-        /// <param name="headers"> A collection of headers </param>
-        /// <param name="content"> The header's content if necessary </param>
-        /// <returns></returns>
-        private static string CreateResponseHeader(IEnumerable<string> headers, string content = "")
-        {
-            // Validation
-            if ((headers is null) || (headers.Count() == 0))
-                return null;
-
-            // Holds a list of strings without needing to create a new string every time
-            StringBuilder responseString = new StringBuilder();
-
-            // Create an accumulative join for every header
-            responseString.AppendJoin(END_OF_LINE, headers);
-
-            // Append the \r\n to the the end of the request 
-            responseString.Append(END_OF_LINE);
-            responseString.Append(END_OF_LINE);
-
-            // if the content parameter isn't null
-            if (string.IsNullOrWhiteSpace(content) == false)
-                // Add the content to the end of the string
-                responseString.Append(content);
-
-            // Return headers as a single string
-            return responseString.ToString();
-        }
-
     };
 };
