@@ -5,18 +5,16 @@
     using System.Diagnostics;
     using System.Linq;
     using System.Net;
+    using System.Net.Http;
     using System.Net.Sockets;
     using System.Text;
     using System.Text.Json;
-    using System.Text.RegularExpressions;
     using System.Threading;
     using System.Threading.Tasks;
 
     using CustomToken.Core;
 
-    using Microsoft.IdentityModel.Tokens;
-
-    public static partial class ServerProgram
+    public static class ServerProgram
     {
 
         /// <summary>
@@ -51,6 +49,7 @@
 
         private static Stopwatch _watcher = new Stopwatch();
 
+        private static HttpReqeustHandler _httpReqeustHandler = new HttpReqeustHandler();
 
         private async static Task Main(string[] args)
         {
@@ -84,7 +83,7 @@
             Console.WriteLine("Waiting for connections...");
 
 
-
+            
             // Loop until user calls to exit
             while (true)
             {
@@ -103,7 +102,6 @@
                 var networkStream = connectedClient.GetStream();
 
 
-
                 // "wait" until the request has new data
                 while (networkStream.DataAvailable == false)
                     await Task.Delay(1);
@@ -112,7 +110,6 @@
                 // If the recevied data contains atleast more than 3 characters (GET)
                 if (connectedClient.Available > 3)
                 {
-
                     // Allocate the necessary data 
                     byte[] bytes = new byte[connectedClient.Available];
 
@@ -122,30 +119,26 @@
                     // Get the data as a raw string
                     string rawData = Encoding.UTF8.GetString(bytes);
 
-                    string[] splitData = rawData.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
-
-                    // Get the requested url
-                    var requestedUrl = rawData.Split(" ")[1].Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    // Create an Http request model
+                    var request = _httpReqeustHandler.CreateRequest(rawData);
 
                     // A string that holds the response that will be sent to the user
                     string responseString = "";
 
 
-
                     // Check if the request if a POST request
-                    if (Regex.IsMatch(rawData, "^POST", RegexOptions.IgnoreCase))
+                    if (request.Method == HttpMethod.Post.Method)
                     {
                         // If the requested url begins with Account "controller"
-                        if (requestedUrl[0] == "Account")
+                        if (request.RequestedUrlSplit[0] == "Account")
                         {
                             // Match the other part of the url
 
                             // If it's a login request
-                            if (requestedUrl[1] == "Login")
+                            if (request.RequestedUrlSplit[1] == "Login")
                             {
                                 // Get login details
-                                var loginDetails = JsonSerializer.Deserialize<LoginRequest>(rawData.Split("\r\n\r\n")[1]);
-
+                                var loginDetails = await request.ReadContentAsJsonAsync<LoginRequest>();
 
                                 // Check if login credentials are valid
                                 if ((loginDetails.Username == "Password") && (loginDetails.Password == "Username"))
@@ -185,10 +178,10 @@
                                 };
                             }
                             // If an authorized request was requested
-                            else if (requestedUrl[1] == "Authorized")
+                            else if (request.RequestedUrlSplit[1] == "Authorized")
                             {
                                 // deserialize the request model
-                                var authorizedRequest = JsonSerializer.Deserialize<AuthorizedRequest>(rawData.Split("\r\n\r\n")[1]);
+                                var authorizedRequest = await request.ReadContentAsJsonAsync<AuthorizedRequest>();
 
                                 // Validate authorization
 
@@ -222,10 +215,10 @@
                                 };
                             }
                             // If sign out was requested
-                            else if (requestedUrl[1] == "SignOut")
+                            else if (request.RequestedUrlSplit[1] == "SignOut")
                             {
                                 // Deserialize the request
-                                var signOutDetails = JsonSerializer.Deserialize<SignOutRequest>(rawData.Split("\r\n\r\n")[1]);
+                                var signOutDetails = await request.ReadContentAsJsonAsync<SignOutRequest>();
 
                                 // If token was found, remove from list
                                 if (_validTokens.Remove(signOutDetails.Token) == true)
@@ -318,7 +311,6 @@
             // Return headers as a single string
             return responseString.ToString();
         }
-
 
     };
 };
